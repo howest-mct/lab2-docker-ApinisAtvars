@@ -34,3 +34,4 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str("%.5fs" % processing_time)
     response.headers["X-API-Hostname"] = str(socket.gethostname())
     return response
+
