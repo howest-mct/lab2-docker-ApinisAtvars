@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  api:
+    image: atvars/basic-webapp-api
+    build: ./api
+    ports:
+      - 8080:8080
+    environment:
+      - POSTGRES_USER=student_user
+      - POSTGRES_PASSWORD=student_password
+      - POSTGRES_DATABASE=labo
+      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=postgres
+      - PORT=8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+  frontend:
+    image: atvars/basic-webapp-frontend
+    build: ./web
+    expose:
+      - 5000
+    environment:
+      - FLASK_SECRET_KEY=key
+      - JWT_SECRET_KEY=SSBmb3Jnb3I=
+  nginx:
+    build: ./nginx
+    ports:
+      - 80:80
+  postgres:
+    image: 'postgres:16.2-alpine'
+    environment:
+      - POSTGRES_USER=student_user
+      - POSTGRES_PASSWORD=student_password
+      - POSTGRES_DB=labo
+    volumes:
+      - postgres:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres:
