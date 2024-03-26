@@ -2,10 +2,13 @@ version: '3.9'
 
 services:
   api:
-    image: atvars/basic-webapp-api
+    image: atvarsap/basic-webapp-api
     build: ./api
-    ports:
-      - 8080:8080
+    labels:
+      - "traefik.http.routers.api.rule=Host(`api.local`)"
+      - traefik.http.services.api.loadbalancer.server.port=8080
+    # ports:
+    #   - 8080:8080
     environment:
       - POSTGRES_USER=student_user
       - POSTGRES_PASSWORD=student_password
@@ -13,27 +16,39 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_HOST=postgres
       - PORT=8080
+
     depends_on:
       postgres:
         condition: service_healthy
   frontend:
-    image: atvars/basic-webapp-frontend
+    image: atvarsap/basic-webapp-frontend
     build: ./web
     expose:
       - 5000
     environment:
       - FLASK_SECRET_KEY=key
       - JWT_SECRET_KEY=SSBmb3Jnb3I=
+    labels:
+      - traefik.enable=false
+    volumes:
+      - ./web/webapp/static/:/app/webapp/static
   nginx:
+    image: atvarsap/basic-webapp-nginx
     build: ./nginx
-    ports:
-      - 80:80
+    # ports:
+    #   - 80:80
+    labels:
+      - "traefik.http.routers.frontend.rule=Host(`frontend.local`)"
+    volumes:
+      - ./web/webapp/static/:/app/static:ro
   postgres:
-    image: 'postgres:16.2-alpine'
+    image: postgres:16.2-alpine
     environment:
       - POSTGRES_USER=student_user
       - POSTGRES_PASSWORD=student_password
       - POSTGRES_DB=labo
+    labels:
+      - traefik.enable=false
     volumes:
       - postgres:/var/lib/postgresql/data/
     healthcheck:
@@ -42,6 +57,23 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+  reverse-proxy:
+    # The official v2 Traefik docker image
+    image: traefik:v2.11
+    # Enables the web UI and tells Traefik to listen to docker
+    labels:
+      - "traefik.http.routers.traefik.rule=Host(`traefik.local`)"
+      - traefik.http.services.traefik.loadbalancer.server.port=8080
+    command: --api.insecure=true --providers.docker
+    ports:
+      # The HTTP port
+      - "80:80"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
+
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   postgres:
