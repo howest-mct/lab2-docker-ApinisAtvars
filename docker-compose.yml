@@ -27,7 +27,7 @@ services:
       postgres:
         condition: service_healthy
     env_file:
-      - postgres.env
+      - postgres.env #This file is included in .gitignore
 
 
   frontend:
@@ -47,7 +47,7 @@ services:
     networks:
       - web
     env_file:
-      - .frontend.env
+      - .frontend.env #This file is also included int the .gitignore file
 
   nginx:
     image: atvarsap/basic-webapp-nginx
