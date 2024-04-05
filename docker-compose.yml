@@ -1,5 +1,7 @@
 version: '3.9'
 
+
+
 services:
   api:
     image: atvarsap/basic-webapp-api
@@ -7,31 +9,46 @@ services:
     labels:
       - "traefik.http.routers.api.rule=Host(`api.local`)"
       - traefik.http.services.api.loadbalancer.server.port=8080
+      - "traefik.http.routers.api.middlewares=admin"
+      - "traefik.docker.network=lab3_web"
     # ports:
     #   - 8080:8080
     environment:
-      - POSTGRES_USER=student_user
-      - POSTGRES_PASSWORD=student_password
-      - POSTGRES_DATABASE=labo
-      - POSTGRES_PORT=5432
-      - POSTGRES_HOST=postgres
-      - PORT=8080
-
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DATABASE=${POSTGRES_DATABASE}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - PORT=${PORT}
+    networks:
+      - web
+      - data
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - postgres.env
+
+
   frontend:
     image: atvarsap/basic-webapp-frontend
     build: ./web
     expose:
       - 5000
+
     environment:
-      - FLASK_SECRET_KEY=key
-      - JWT_SECRET_KEY=SSBmb3Jnb3I=
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     labels:
       - traefik.enable=false
+      - "traefik.docker.network=lab3_web"
     volumes:
       - ./web/webapp/static/:/app/webapp/static
+    networks:
+      - web
+    env_file:
+      - .frontend.env
+
   nginx:
     image: atvarsap/basic-webapp-nginx
     build: ./nginx
@@ -39,14 +56,19 @@ services:
     #   - 80:80
     labels:
       - "traefik.http.routers.frontend.rule=Host(`frontend.local`)"
+      - "traefik.docker.network=lab3_web"
     volumes:
       - ./web/webapp/static/:/app/static:ro
+    networks:
+      - web
+
+
   postgres:
     image: postgres:16.2-alpine
     environment:
-      - POSTGRES_USER=student_user
-      - POSTGRES_PASSWORD=student_password
-      - POSTGRES_DB=labo
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DATABASE}
     labels:
       - traefik.enable=false
     volumes:
@@ -57,6 +79,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - data
+    env_file:
+      - postgres.env
+
   reverse-proxy:
     # The official v2 Traefik docker image
     image: traefik:v2.11
@@ -64,6 +91,9 @@ services:
     labels:
       - "traefik.http.routers.traefik.rule=Host(`traefik.local`)"
       - traefik.http.services.traefik.loadbalancer.server.port=8080
+      - "traefik.http.routers.traefik.middlewares=admin"
+      - "traefik.http.middlewares.admin.basicauth.users=atvars:$$2y$$05$$Tq7FdCYYZ9i0Y/oWefemMOl5mf4AW8ScAXjLSy/y/2pRsPhUYGNlS" #Username atvars, password atvars
+      - "traefik.docker.network=lab3_web"
     command: --api.insecure=true --providers.docker
     ports:
       # The HTTP port
@@ -73,7 +103,13 @@ services:
 
     volumes:
       # So that Traefik can listen to the Docker events
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - web
+
+networks:
+  web:
+  data:
 
 volumes:
   postgres:

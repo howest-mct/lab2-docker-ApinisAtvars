@@ -235,3 +235,7 @@ dmypy.json
 
 # Secrets
 secret_*.txt
+
+# Variables
+.postgres.env
+.frontend.env
